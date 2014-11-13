@@ -28,10 +28,10 @@
     "test": "grunt test"
   },
   "devDependencies": {
-    "grunt-contrib-jshint": "~0.1.1",
-    "grunt-contrib-clean": "~0.4.0",
-    "grunt-contrib-nodeunit": "~0.1.2",
     "grunt": "~0.4.1",
+    "grunt-contrib-clean": "~0.4.0",
+    "grunt-contrib-jshint": "~0.1.1",
+    "grunt-contrib-nodeunit": "~0.1.2",
     "grunt-release": "~0.6.0"
   },
   "peerDependencies": {
@@ -41,6 +41,7 @@
     "gruntplugin"
   ],
   "dependencies": {
-    "es6-module-transpiler": "~0.3"
+    "es6-module-transpiler": "^0.9.3",
+    "es6-module-transpiler-amd-formatter": "^0.2.4"
   }
 }

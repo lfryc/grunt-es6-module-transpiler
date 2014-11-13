@@ -12,89 +12,47 @@ module.exports = function(grunt) {
 
   var path = require('path');
 
-  function transpile(file, options) {
-    var src = file.src,
-        Compiler = require("es6-module-transpiler").Compiler,
-        compiler, compiled, ext, method, moduleName;
+  function transpile( formatter, searchPath, modules, destination ) {
+    var Transpiler = require("es6-module-transpiler"),
+        container, Formatter, formatterInstance;
 
-    ext = path.extname(src);
-
-    if (ext.slice(1) === 'coffee') {
-      options = grunt.util._.extend({coffee: true}, options);
+    switch (formatter) {
+      case 'amd':
+        Formatter = require('es6-module-transpiler-amd-formatter');
+        formatterInstance = new Formatter();
+        break;
+      default:
+        throw new Error("unknown formatter type: " + formatter );
     }
 
-    if (options.anonymous) {
-      moduleName = '';
-    } else if (typeof options.moduleName === 'string') {
-      moduleName = options.moduleName;
-    } else {
-      moduleName = path.join(path.dirname(src), path.basename(src, ext)).replace(/[\\]/g, '/');
-      if (file.orig.cwd) {
-        moduleName = moduleName.slice(file.orig.cwd.length);
-      }
-      if (options.moduleName) {
-        moduleName = options.moduleName(moduleName, file);
-      }
-    }
+    container = new Transpiler.Container({
+      resolvers: [ new Transpiler.FileResolver( searchPath ) ],
+      formatter: formatterInstance
+    });
 
-    compiler = new Compiler(grunt.file.read(src), moduleName, options);
+    grunt.log.ok( 'loading modules...' );
+    modules.forEach(function(module) {
+      grunt.log.ok( ' - ' + module );
+      container.getModule(module);
+    });
 
-    switch(options.type){
-    case 'cjs':
-      method = "toCJS";
-      break;
-    case 'amd':
-      method = "toAMD";
-      break;
-    case 'yui':
-      method = "toYUI";
-      break;
-    case 'globals':
-      method = "toGlobals";
-      break;
-    default:
-      throw new Error("unknown transpile destination type: " + options.type);
-    }
-
-    compiled = compiler[method].apply(compiler);
-
-    grunt.file.write(file.dest, compiled);
-  }
-
-  function formatTranspilerError(filename, e) {
-    var pos = '[' + 'L' + e.lineNumber + ':' + ('C' + e.column) + ']';
-    return filename + ': ' + pos + ' ' + e.description;
+    grunt.log.ok( 'transpiling modules to ' + destination );
+    container.write( destination );
   }
 
   grunt.registerMultiTask("transpile", function(){
 
-    var opts = {};
+    var formatter = this.data.formatter; // string for known formatter type (e.g. 'amd')
+    var modules = this.data.modules; // array of module names
+    var searchPath = this.data.searchPath; // array of directory paths
+    var destination = this.data.destination; // directory path
 
-    opts.imports = this.data.imports;
-    opts.type = this.data.type;
-    opts.moduleName = this.data.moduleName;
-    opts.anonymous = this.data.anonymous;
-    opts.compatFix = this.data.compatFix;
-
-    this.files.forEach(function(file){
-      file.src.filter(function(path){
-        if(!grunt.file.exists(path)){
-          grunt.log.warn('Source file "' + path + '" not found.');
-          return false;
-        } else {
-          return true;
-        }
-      }).forEach(function(path){
-        try {
-          transpile({src:path, dest:file.dest, orig:file.orig}, opts);
-        } catch (e) {
-          var message = formatTranspilerError(path, e);
-
-          grunt.log.error(message);
-          grunt.fail.warn('Error compiling ' + path);
-        }
-      });
-    });
+    try {
+      transpile( formatter, searchPath, modules, destination );
+    } catch (e) {
+      grunt.log.warn('Error compiling ' + this.target);
+      grunt.fail.fatal( e );
+    }
 
   });
 
