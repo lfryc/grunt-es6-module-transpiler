@@ -11,10 +11,10 @@
 module.exports = function(grunt) {
 
   var path = require('path');
+  var Transpiler = require("es6-module-transpiler")
 
-  function transpile( formatter, searchPath, modules, destination ) {
-    var Transpiler = require("es6-module-transpiler"),
-        container, Formatter, formatterInstance;
+  function transpile( formatter, modules, destination, options ) {
+    var container, Formatter, formatterInstance;
 
     switch (formatter) {
       case 'amd':
@@ -26,34 +26,68 @@ module.exports = function(grunt) {
     }
 
     container = new Transpiler.Container({
-      resolvers: [ new Transpiler.FileResolver( searchPath ) ],
+      resolvers: options.resolvers,
       formatter: formatterInstance
     });
 
     grunt.log.ok( 'loading modules...' );
-    modules.forEach(function(module) {
-      grunt.log.ok( ' - ' + module );
-      container.getModule(module);
+    modules.forEach(function(moduleName) {
+      grunt.log.ok( ' - ' + moduleName );
+      container.getModule(moduleName);
     });
+
+    if (options.transitiveResolution) {
+      grunt.log.ok( 'looking for transitively imported modules...');
+      container.findImportedModules();
+      container.getModules().forEach(function( module ) {
+        if (!arrayContains( modules, module.relativePath )) {
+          grunt.log.ok(' - ' + module.relativePath);
+        }
+      });
+    }
 
     grunt.log.ok( 'transpiling modules to ' + destination );
     container.write( destination );
+
+    // return list of compiled modules
+    var result = {};
+    container.getModules().forEach(function( module ) {
+      result[module.name] = module.relativePath;
+    });
+    return result;
+  }
+
+  function arrayContains( array, value ) {
+    return !array.every(function( arrayValue ) {
+      return arrayValue != value;
+    });
   }
 
   grunt.registerMultiTask("transpile", function(){
 
+    var options = this.options({
+      transitiveResolution: false,
+      resolvers: [ new Transpiler.FileResolver( [ process.cwd() ] ) ],
+      configureGrunt: false
+    });
+
     var formatter = this.data.formatter; // string for known formatter type (e.g. 'amd')
     var modules = this.data.modules; // array of module names
-    var searchPath = this.data.searchPath; // array of directory paths
     var destination = this.data.destination; // directory path
 
     try {
-      transpile( formatter, searchPath, modules, destination );
+      var compiledModules = transpile( formatter, modules, destination, options );
+
+      // merge the list of compiled modules back to the configuration
+      var config = { transpile: {} };
+      config.transpile[this.target] = {
+        compiledModules: compiledModules
+      }
+      grunt.config.merge(config);
     } catch (e) {
       grunt.log.warn('Error compiling ' + this.target);
       grunt.fail.fatal( e );
     }
-
   });
 
 };
