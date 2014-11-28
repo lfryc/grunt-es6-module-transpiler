@@ -11,10 +11,11 @@
 module.exports = function(grunt) {
 
   var path = require('path');
-  var Transpiler = require("es6-module-transpiler")
 
   function transpile( formatter, modules, destination, options ) {
     var container, Formatter, formatterInstance;
+
+    var Transpiler = require("es6-module-transpiler");
 
     switch (formatter) {
       case 'amd':
@@ -27,7 +28,8 @@ module.exports = function(grunt) {
 
     container = new Transpiler.Container({
       resolvers: options.resolvers,
-      formatter: formatterInstance
+      formatter: formatterInstance,
+      sourceRoot: options.sourceRoot
     });
 
     grunt.log.ok( 'loading modules...' );
@@ -65,10 +67,13 @@ module.exports = function(grunt) {
 
   grunt.registerMultiTask("transpile", function(){
 
+    var Transpiler = require("es6-module-transpiler");
+
     var options = this.options({
       transitiveResolution: false,
       resolvers: [ new Transpiler.FileResolver( [ process.cwd() ] ) ],
-      configureGrunt: false
+      configureGrunt: false,
+      sourceRoot: './'
     });
 
     var formatter = this.data.formatter; // string for known formatter type (e.g. 'amd')
@@ -91,3 +96,4 @@ module.exports = function(grunt) {
   });
 
 };
+
